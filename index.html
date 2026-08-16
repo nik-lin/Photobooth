@@ -201,6 +201,7 @@
     font-size:12.5px;line-height:1.45;padding:11px 15px;border-radius:12px;text-align:center;
     opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:50}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .vh{position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;margin:0}
   canvas{display:none}
 </style>
 </head>
@@ -294,7 +295,7 @@
 
   <div class="wipe" id="wipe"><div class="half left"></div><div class="half right"></div></div>
   <div class="toast" id="toast"></div>
-  <input type="file" id="slotInput" accept="image/*" hidden>
+  <input type="file" id="slotInput" accept="image/*" class="vh">
   <p class="fnote" id="fnote"></p>
 </div>
 

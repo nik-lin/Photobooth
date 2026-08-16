@@ -144,9 +144,9 @@
   /* printout = a clip mask flush under the slot; the strip is fed out top-first */
   .printout{position:relative;flex:1;min-height:0;overflow:hidden}
   @keyframes printOut{
-    0%{transform:translate(-50%,-101%) rotate(0deg)}
-    90%{transform:translate(-50%,3px) rotate(-1.7deg)}
-    100%{transform:translate(-50%,0) rotate(-1.5deg)}
+    0%{transform:translate(-50%,-101%) rotate(0deg) scale(var(--s,1))}
+    90%{transform:translate(-50%,3px) rotate(-1.7deg) scale(var(--s,1))}
+    100%{transform:translate(-50%,0) rotate(-1.5deg) scale(var(--s,1))}
   }
   @keyframes fadeUp{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
   /* slow "developing" of each frame as it clears the slot */
@@ -155,7 +155,7 @@
     58%{opacity:1;filter:blur(3px) contrast(.72) sepia(.42)}
     100%{opacity:1;filter:none}
   }
-  .strip{position:absolute;left:50%;top:0;transform:translate(-50%,-101%);
+  .strip{position:absolute;left:50%;top:0;transform:translate(-50%,-101%) scale(var(--s,1));transform-origin:top center;
     width:116px;border-radius:5px;padding:8px;display:flex;flex-direction:column;gap:6px;
     box-shadow:0 22px 50px rgba(0,0,0,.6);will-change:transform}
   .strip.print{animation:printOut 5.6s linear both}
@@ -192,6 +192,11 @@
   .wipe.closed .right{transform:translateX(0)}
 
   .fnote{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:10px;color:#7a655d;padding:0 20px;z-index:5}
+  .toast{position:absolute;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(10px);
+    max-width:300px;background:rgba(11,7,9,.94);border:1px solid #3a2531;color:var(--cream);
+    font-size:12.5px;line-height:1.45;padding:11px 15px;border-radius:12px;text-align:center;
+    opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   canvas{display:none}
 </style>
 </head>
@@ -225,8 +230,6 @@
         <div class="picker" id="picker"></div>
         <input type="text" id="caption" maxlength="22" placeholder="Text on the strip — namn, datum, ett ord">
         <button class="btn-red" id="startBtn">Take four shots</button>
-        <div class="rowlabel"><span class="l">Your strips</span><span class="rule"></span></div>
-        <div class="shelf" id="shelf"></div>
       </div>
     </div>
   </section>
@@ -280,15 +283,13 @@
       <div class="reveal-foot" id="revealFoot">
         <p class="rlbl">Developing · framkallas</p>
         <button class="btn-red" id="saveBtn">Save to camera roll</button>
-        <div class="rrow">
-          <button class="btn-ghost" id="shelfBtn">Add to shelf</button>
-          <button class="btn-ghost" id="againBtn">Again</button>
-        </div>
+        <button class="btn-ghost" id="againBtn" style="width:100%">Again</button>
       </div>
     </div>
   </section>
 
   <div class="wipe" id="wipe"><div class="half left"></div><div class="half right"></div></div>
+  <div class="toast" id="toast"></div>
   <p class="fnote" id="fnote"></p>
 </div>
 
@@ -348,10 +349,6 @@
       b.onclick=()=>{ state.frame=f.id; renderHome(); };
       p.appendChild(b);
     });
-  }
-  function renderShelf(){
-    const el=$('#shelf'); el.innerHTML='';
-    state.shelf.forEach(src=>{ const d=document.createElement('div'); d.className='s'; d.style.backgroundImage='url("'+src+'")'; el.appendChild(d); });
   }
   $('#caption').addEventListener('input', e=>{ state.caption=e.target.value; renderHome(); });
 
@@ -465,10 +462,14 @@
     strip.querySelectorAll('.ph .img').forEach((im,i)=>{ im.style.backgroundImage='url("'+(state.shots[i]||'')+'")'; });
     $('#stripCap').textContent=(state.caption||'').trim(); $('#stripCap').style.color=f.ink;
     $('#stripStamp').textContent=stamp(); $('#stripStamp').style.color=f.ink;
-    $('#saveBtn').textContent='Save to camera roll'; $('#shelfBtn').textContent='Add to shelf';
+    $('#saveBtn').textContent='Save to camera roll';
     $('#revealFoot').classList.remove('show');
     strip.classList.remove('print'); glow.classList.remove('go');
     await wipe(()=>show('reveal'));
+    strip.style.setProperty('--s','1');                     // fit the whole strip in the space below the slot
+    const po=strip.parentElement;
+    const sc=Math.min(1,(po.clientHeight-6)/strip.offsetHeight);
+    strip.style.setProperty('--s',(sc>0?sc:1).toFixed(3));
     void strip.offsetWidth; strip.classList.add('print');   // slow feed + develop
     void glow.offsetWidth; glow.classList.add('go');
     state.timers.push(setTimeout(()=>glow.classList.remove('go'), 5900));
@@ -519,16 +520,33 @@
       cb(c.toDataURL('image/png'));
     }
   }
-  $('#saveBtn').onclick=()=>buildCanvas(url=>{ if(!url) return;
-    const a=document.createElement('a'); a.download='fotobas-strip.png'; a.href=url; a.click();
-    $('#saveBtn').textContent='Saved to camera roll'; });
-  $('#shelfBtn').onclick=()=>buildCanvas(url=>{ if(!url) return;
-    state.shelf=[url,...state.shelf].slice(0,6); $('#shelfBtn').textContent='On the shelf'; renderShelf(); });
+  function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3800); }
+  function stripToFile(cb){
+    buildCanvas(url=>{
+      if(!url){ cb(null,null); return; }
+      fetch(url).then(r=>r.blob()).then(b=>cb(new File([b],'fotobas-remsa.png',{type:'image/png'}),url)).catch(()=>cb(null,url));
+    });
+  }
+  $('#saveBtn').onclick=()=>{
+    stripToFile(async (file,url)=>{
+      if(!url) return;
+      // Mobile: native share sheet → "Spara bild" lands in the camera roll
+      if(file && navigator.canShare && navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file], title:'Fotobås'}); $('#saveBtn').textContent='Saved ✓'; return; }
+        catch(e){ if(e && e.name==='AbortError') return; }   // user cancelled → do nothing
+      }
+      // Desktop / no share: download the file
+      const a=document.createElement('a'); a.href=url; a.download='fotobas-remsa.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      $('#saveBtn').textContent='Saved ✓';
+      toast('Remsan är sparad. Om den öppnas i en flik istället: håll fingret på bilden och välj Spara bild.');
+    });
+  };
 
   const inFrame=(()=>{ try{ return window.self!==window.top; }catch(e){ return true; } })();
   $('#fnote').textContent = inFrame ? 'Förhandsvisning: kameran är blockerad här — tryck Take four shots och välj Ladda upp / stand-ins.' : '';
 
-  buildPicker(); renderHome(); renderShelf();
+  buildPicker(); renderHome();
 })();
 </script>
 </body>

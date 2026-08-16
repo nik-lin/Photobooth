@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Photobooth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,900&family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0709; --velvet-a:#40202e; --velvet-b:#2a1620; --velvet-c:#1a0e14;
+    --enamel:#b5372e; --enamel-2:#8c2820; --enamel-dk:#7d221c; --enamel-sh:#5c1813;
+    --cream:#f4ece0; --cream-2:#f7efe3; --ink:#0b0709;
+    --gold:#f3d18a; --gold-a:#f7dfa6; --gold-b:#dfb968; --gold-sh:#9c7c35;
+    --line:rgba(244,236,224,.14);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:Barlow,system-ui,sans-serif;color:var(--cream);background:var(--bg);
+    min-height:100dvh;display:flex;justify-content:center;align-items:stretch;overflow:hidden;
+  }
+  .app{
+    position:relative;width:100%;max-width:430px;min-height:100dvh;overflow:hidden;
+    background:radial-gradient(120% 70% at 50% -8%,var(--velvet-a) 0%,var(--velvet-b) 45%,var(--velvet-c) 100%);
+  }
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column}
+  .screen.hide{display:none}
+  .ridges{position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(90deg,rgba(0,0,0,.16) 0 2px,transparent 2px 20px);opacity:.55}
+  .statusbar{display:flex;justify-content:space-between;align-items:center;
+    font:600 13px Barlow,sans-serif;color:#e7d9c9;padding:0 6px 6px}
+  .statusbar .r{font-size:11px;letter-spacing:.06em}
+  .bulbs{display:flex;justify-content:center;gap:11px;margin:4px 0 12px}
+  .bulbs i{width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 12px 2px rgba(243,209,138,.75)}
+  @keyframes flick{0%,100%{opacity:1}47%{opacity:1}50%{opacity:.5}53%{opacity:1}}
+  .bulbs i:nth-child(1){animation:flick 4.2s infinite}
+  .bulbs i:nth-child(3){animation:flick 5.7s infinite}
+  .bulbs i:nth-child(5){animation:flick 3.3s infinite}
+
+  .btn-red{width:100%;border:none;cursor:pointer;color:#fff;
+    font:700 19px "Barlow Condensed",sans-serif;letter-spacing:.14em;text-transform:uppercase;
+    padding:19px;border-radius:16px;background:linear-gradient(180deg,var(--enamel),var(--enamel-dk));
+    box-shadow:0 6px 0 var(--enamel-sh),0 14px 26px rgba(0,0,0,.45);transition:transform .08s,box-shadow .08s}
+  .btn-red:active{transform:translateY(3px);box-shadow:0 2px 0 var(--enamel-sh),0 8px 18px rgba(0,0,0,.4)}
+  .btn-gold{border:none;cursor:pointer;color:#2a1620;
+    font:700 15px "Barlow Condensed",sans-serif;letter-spacing:.14em;text-transform:uppercase;
+    padding:14px 26px;border-radius:12px;background:linear-gradient(180deg,var(--gold-a),var(--gold-b))}
+  .btn-ghost{cursor:pointer;background:transparent;border:1.5px solid #4a2f3c;color:var(--cream);
+    font:700 13px "Barlow Condensed",sans-serif;letter-spacing:.16em;text-transform:uppercase;
+    padding:14px;border-radius:13px}
+
+  /* HOME */
+  .curtain-l,.curtain-r{position:absolute;top:0;width:20%;max-width:92px;height:100%;z-index:1}
+  .curtain-l{left:0;background:linear-gradient(90deg,#3a1f2b 0%,#24131c 55%,#160c12 100%);box-shadow:inset -18px 0 30px rgba(0,0,0,.55)}
+  .curtain-r{right:0;background:linear-gradient(270deg,#3a1f2b 0%,#24131c 55%,#160c12 100%);box-shadow:inset 18px 0 30px rgba(0,0,0,.55)}
+  .home-inner{position:relative;z-index:2;display:flex;flex-direction:column;height:100dvh;
+    padding:calc(14px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))}
+  .title{text-align:center;line-height:.88}
+  .title .kick{font:500 11px "Barlow Condensed",sans-serif;letter-spacing:.44em;text-transform:uppercase;color:var(--gold);margin:0 0 6px 4px}
+  .title h1{font-family:Fraunces,serif;font-weight:900;font-size:54px;margin:0;color:var(--cream);
+    text-shadow:0 2px 0 var(--enamel-dk),0 4px 18px rgba(0,0,0,.55)}
+  .title h1 em{font-style:italic;color:var(--enamel)}
+  .title .sub{font:500 11px "Barlow Condensed",sans-serif;letter-spacing:.28em;text-transform:uppercase;color:rgba(244,236,224,.4);margin:8px 0 0}
+  .preview-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:10px 0}
+  .paper{border-radius:8px;padding:11px 11px 30px;box-shadow:0 26px 50px rgba(0,0,0,.6);position:relative}
+  .paper .glass{position:relative;width:158px;height:196px;border-radius:3px;overflow:hidden;
+    background:linear-gradient(180deg,#1b1016,#0d0709);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#7d6b62}
+  .paper .glass svg{width:36px;height:36px;opacity:.8}
+  .paper .glass p{margin:0;font-size:12.5px;line-height:1.5;text-align:center;max-width:126px}
+  .paper .cap{position:absolute;left:0;right:0;bottom:9px;text-align:center;font:600 12px Fraunces,serif}
+  .controls{display:flex;flex-direction:column;gap:11px}
+  .rowlabel{display:flex;align-items:center;gap:11px}
+  .rowlabel .l{font:500 10px "Barlow Condensed",sans-serif;letter-spacing:.3em;text-transform:uppercase;color:rgba(244,236,224,.4)}
+  .rowlabel .rule{flex:1;height:1px;background:var(--line)}
+  .rowlabel .v{font:600 10.5px Barlow,sans-serif;color:var(--gold)}
+  .picker{display:flex;gap:9px;overflow-x:auto;padding:2px 2px 4px;scrollbar-width:none}
+  .picker::-webkit-scrollbar{display:none}
+  .swatch{flex:none;cursor:pointer;background:transparent;border:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:5px}
+  .swatch .chip{display:flex;flex-direction:column;gap:4px;width:56px;padding:7px 7px 5px;border-radius:4px;box-shadow:0 0 0 1px rgba(255,255,255,.14)}
+  .swatch.sel .chip{box-shadow:0 0 0 2px var(--enamel),0 6px 14px rgba(0,0,0,.5)}
+  .swatch .chip span:nth-child(1){height:20px;border-radius:1px;background:linear-gradient(150deg,#b7aa9e,#8d8177)}
+  .swatch .chip span:nth-child(2){height:20px;border-radius:1px;background:linear-gradient(150deg,#a2958a,#7d7269)}
+  .swatch .chip span:nth-child(3){height:8px;margin:1px 8px 0;border-radius:1px}
+  .swatch .name{font:500 9px "Barlow Condensed",sans-serif;letter-spacing:.1em;text-transform:uppercase;color:rgba(205,191,180,.6)}
+  .swatch.sel .name{color:var(--gold)}
+  input[type=text]{width:100%;background:#160d13;border:1px solid #3a2531;color:var(--cream);
+    border-radius:11px;padding:12px 14px;font-size:14px;outline:none;font-family:Barlow,sans-serif}
+  input[type=text]:focus{border-color:var(--enamel)}
+  input[type=text]::placeholder{color:#7a6a62}
+  .shelf{display:flex;gap:9px;overflow:hidden;min-height:62px}
+  .shelf .s{width:42px;height:62px;border-radius:3px;box-shadow:0 6px 14px rgba(0,0,0,.45);background-size:cover;background-position:top center;background-color:#2a1620}
+
+  /* CAPTURE */
+  #capture{background:var(--bg)}
+  #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  .vignette{position:absolute;inset:0;box-shadow:inset 0 0 120px 30px rgba(26,14,20,.75);pointer-events:none}
+  .cap-bulbs{position:absolute;top:calc(22px + env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:center;gap:14px}
+  .cap-bulbs i{width:8px;height:8px;border-radius:50%}
+  .dots{position:absolute;top:calc(52px + env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:center;gap:8px}
+  .dots i{width:9px;height:9px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);background:transparent}
+  .dots i.on{background:var(--enamel)}
+  @keyframes countin{0%{opacity:0;transform:scale(1.5)}18%{opacity:1;transform:scale(1)}80%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.9)}}
+  .count{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  .count.hide{display:none}
+  .count span{font-family:Fraunces,serif;font-weight:900;font-size:150px;color:#fff;text-shadow:0 6px 40px rgba(0,0,0,.7);animation:countin .78s ease both}
+  @keyframes flashpop{0%{opacity:0}12%{opacity:.95}100%{opacity:0}}
+  .flash{position:absolute;inset:0;background:#fff;pointer-events:none;opacity:0}
+  .flash.pop{animation:flashpop .5s ease both}
+  .cap-foot{position:absolute;left:0;right:0;bottom:0;padding:26px 24px calc(34px + env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;align-items:center;gap:16px;background:linear-gradient(180deg,rgba(11,7,9,0),rgba(11,7,9,.85))}
+  .cap-foot .lbl{margin:0;font:700 11px "Barlow Condensed",sans-serif;letter-spacing:.36em;text-transform:uppercase;color:var(--gold)}
+  .step-out{border:1.5px solid rgba(244,236,224,.3);background:transparent;cursor:pointer;color:var(--cream);
+    font:700 12px "Barlow Condensed",sans-serif;letter-spacing:.2em;text-transform:uppercase;padding:11px 22px;border-radius:100px}
+  .camerr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:40px;background:rgba(11,7,9,.92);text-align:center}
+  .camerr.hide{display:none}
+  .camerr p{margin:0;font-size:14px;line-height:1.6;color:#c9b8ab;max-width:260px}
+  .camerr .small{font-size:12px;color:rgba(201,184,171,.7);max-width:250px}
+  .camerr label{cursor:pointer;font:700 13px "Barlow Condensed",sans-serif;letter-spacing:.16em;text-transform:uppercase;padding:12px 22px;border-radius:12px;color:var(--cream);border:1.5px solid rgba(244,236,224,.3)}
+
+  /* REVEAL */
+  #reveal{background:radial-gradient(110% 60% at 50% 0%,#3a1f2b 0%,#1a0e14 70%)}
+  .reveal-inner{display:flex;flex-direction:column;height:100dvh;
+    padding:calc(14px + env(safe-area-inset-top)) 24px calc(28px + env(safe-area-inset-bottom))}
+  .machine{position:relative;margin:6px 6px 0;border-radius:22px 22px 0 0;
+    background:linear-gradient(180deg,var(--enamel),var(--enamel-2));
+    box-shadow:0 -2px 0 rgba(255,255,255,.14) inset,0 20px 44px rgba(0,0,0,.5);padding:14px 16px 0;z-index:3}
+  .machine .m-bulbs{display:flex;justify-content:center;gap:8px;margin-bottom:10px}
+  .machine .m-bulbs i{width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 9px 2px rgba(243,209,138,.8)}
+  .machine h2{font-family:Fraunces,serif;font-weight:900;font-size:34px;margin:0;text-align:center;color:var(--cream-2);text-shadow:0 2px 0 rgba(0,0,0,.32);line-height:.9}
+  .machine h2 em{font-style:italic;color:var(--gold)}
+  .machine .m-sub{font:700 9px "Barlow Condensed",sans-serif;letter-spacing:.4em;text-transform:uppercase;color:rgba(255,255,255,.62);text-align:center;margin:5px 0 14px}
+  .slot{position:relative;height:12px;margin:0 -16px;background:#0f0a0d;display:flex;justify-content:center;align-items:center}
+  .slot .mouth{width:150px;height:7px;border-radius:4px;background:#000;box-shadow:inset 0 3px 6px rgba(0,0,0,.95),0 1px 0 rgba(255,255,255,.10)}
+  /* slot glow pulses gently while the strip is feeding out */
+  @keyframes slotPulse{0%,100%{opacity:.14}50%{opacity:.6}}
+  .slot .glow{position:absolute;top:2px;width:170px;height:70px;pointer-events:none;
+    background:radial-gradient(60% 100% at 50% 0%,rgba(243,209,138,.6),transparent 70%);opacity:0}
+  .slot .glow.go{animation:slotPulse 1.1s ease-in-out infinite}
+
+  /* printout = a clip mask flush under the slot; the strip is fed out top-first */
+  .printout{position:relative;flex:1;min-height:0;overflow:hidden}
+  @keyframes printOut{
+    0%{transform:translate(-50%,-101%) rotate(0deg)}
+    90%{transform:translate(-50%,3px) rotate(-1.7deg)}
+    100%{transform:translate(-50%,0) rotate(-1.5deg)}
+  }
+  @keyframes fadeUp{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
+  /* slow "developing" of each frame as it clears the slot */
+  @keyframes develop{
+    0%{opacity:0;filter:blur(11px) contrast(.28) sepia(1) brightness(1.45)}
+    58%{opacity:1;filter:blur(3px) contrast(.72) sepia(.42)}
+    100%{opacity:1;filter:none}
+  }
+  .strip{position:absolute;left:50%;top:0;transform:translate(-50%,-101%);
+    width:116px;border-radius:5px;padding:8px;display:flex;flex-direction:column;gap:6px;
+    box-shadow:0 22px 50px rgba(0,0,0,.6);will-change:transform}
+  .strip.print{animation:printOut 5.6s linear both}
+  .strip .ph{position:relative;width:100%;aspect-ratio:1;border-radius:2px;overflow:hidden;background:#dcd3c5}
+  .strip .ph .img{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0}
+  .strip.print .ph .img{animation:develop 2.4s ease forwards}
+  .strip.print .ph:nth-child(1) .img{animation-delay:.7s}
+  .strip.print .ph:nth-child(2) .img{animation-delay:1.9s}
+  .strip.print .ph:nth-child(3) .img{animation-delay:3.1s}
+  .strip.print .ph:nth-child(4) .img{animation-delay:4.3s}
+  .strip .scap{font:600 12px Fraunces,serif;text-align:center;padding:2px 0 1px;opacity:0}
+  .strip .sstamp{font:700 8.5px "Barlow Condensed",sans-serif;letter-spacing:.22em;text-align:center;padding-bottom:2px;opacity:0}
+  .strip.print .scap{animation:fadeUp .8s ease 4.9s forwards}
+  .strip.print .sstamp{animation:fadeUp .8s ease 5.2s forwards}
+  .reveal-foot{display:flex;flex-direction:column;gap:11px;opacity:0}
+  .reveal-foot.show{animation:fadeUp .6s ease both;opacity:1}
+  .reveal-foot .rlbl{margin:0 0 2px;font:700 10px "Barlow Condensed",sans-serif;letter-spacing:.34em;text-transform:uppercase;color:var(--gold);text-align:center}
+  .reveal-foot .rrow{display:flex;gap:10px}
+  .reveal-foot .rrow .btn-ghost{flex:1}
+
+  /* step-in / step-out wipe */
+  .wipe{position:absolute;inset:0;z-index:40;pointer-events:none;display:none}
+  .wipe.on{display:block}
+  .wipe .half{position:absolute;top:0;height:100%;width:52%;
+    background:linear-gradient(180deg,#3a1f2b 0%,#20111a 60%,#140b10 100%);
+    transition:transform .42s cubic-bezier(.6,0,.2,1)}
+  .wipe .half::after{content:"";position:absolute;top:0;bottom:0;width:22px;
+    background:repeating-linear-gradient(90deg,rgba(0,0,0,.35) 0 3px,rgba(255,255,255,.05) 3px 9px)}
+  .wipe .left{left:0;transform:translateX(-101%)}
+  .wipe .left::after{right:0}
+  .wipe .right{right:0;transform:translateX(101%)}
+  .wipe .right::after{left:0}
+  .wipe.closed .left{transform:translateX(0)}
+  .wipe.closed .right{transform:translateX(0)}
+
+  .fnote{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:10px;color:#7a655d;padding:0 20px;z-index:5}
+  canvas{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HOME -->
+  <section class="screen" id="home">
+    <div class="ridges"></div>
+    <div class="curtain-l"></div>
+    <div class="curtain-r"></div>
+    <div class="home-inner">
+      <div class="statusbar"><span>9:41</span><span class="r">􀙇 􀋨 100%</span></div>
+      <div class="bulbs"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="title">
+        <p class="kick">Step right in</p>
+        <h1>Photo<em>booth</em></h1>
+        <p class="sub">Fotobås · fyra bilder, en remsa</p>
+      </div>
+      <div class="preview-wrap">
+        <div class="paper" id="previewPaper">
+          <div class="glass">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 8a2 2 0 0 1 2-2h1.5l1-2h5l1 2H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8Z"/><circle cx="12" cy="13" r="4"/></svg>
+            <p>Sit yourself down. The camera opens when you step in.</p>
+          </div>
+          <span class="cap" id="previewCap">fotobås</span>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="rowlabel"><span class="l">Pick a strip</span><span class="rule"></span><span class="v" id="frameName">Vintage cream</span></div>
+        <div class="picker" id="picker"></div>
+        <input type="text" id="caption" maxlength="22" placeholder="Text on the strip — namn, datum, ett ord">
+        <button class="btn-red" id="startBtn">Take four shots</button>
+        <div class="rowlabel"><span class="l">Your strips</span><span class="rule"></span></div>
+        <div class="shelf" id="shelf"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CAPTURE -->
+  <section class="screen hide" id="capture">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="vignette"></div>
+    <div class="cap-bulbs" id="capBulbs"></div>
+    <div class="dots" id="dots"><i></i><i></i><i></i><i></i></div>
+    <div class="count hide" id="count"><span></span></div>
+    <div class="flash" id="flash"></div>
+    <div class="camerr hide" id="camerr">
+      <p id="camMsg"></p>
+      <button class="btn-gold" id="openTab">Öppna i egen flik</button>
+      <p class="small">I den nya fliken: tryck Tillåt när webbläsaren frågar efter kameran.</p>
+      <button class="step-out" id="retryCam">Försök igen</button>
+      <label>Ladda upp fyra bilder<input type="file" id="fileInput" accept="image/*" multiple hidden></label>
+      <button class="step-out" id="fakeRun">Kör med stand-ins</button>
+    </div>
+    <div class="cap-foot" id="capFoot">
+      <p class="lbl" id="capLbl">Shot 1 of 4</p>
+      <button class="step-out" id="stepOut">Step out</button>
+    </div>
+  </section>
+
+  <!-- REVEAL -->
+  <section class="screen hide" id="reveal">
+    <div class="ridges"></div>
+    <div class="reveal-inner">
+      <div class="statusbar"><span>9:41</span><span class="r">􀙇 􀋨 100%</span></div>
+      <div class="machine">
+        <div class="m-bulbs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <h2>PHOTO<em>BOOTH</em></h2>
+        <p class="m-sub">Automatic · 4 poses</p>
+        <div class="slot">
+          <div class="glow" id="slotGlow"></div>
+          <div class="mouth"></div>
+        </div>
+      </div>
+      <div class="printout">
+        <div class="strip" id="strip">
+          <div class="ph"><div class="img"></div></div>
+          <div class="ph"><div class="img"></div></div>
+          <div class="ph"><div class="img"></div></div>
+          <div class="ph"><div class="img"></div></div>
+          <span class="scap" id="stripCap"></span>
+          <span class="sstamp" id="stripStamp"></span>
+        </div>
+      </div>
+      <div class="reveal-foot" id="revealFoot">
+        <p class="rlbl">Developing · framkallas</p>
+        <button class="btn-red" id="saveBtn">Save to camera roll</button>
+        <div class="rrow">
+          <button class="btn-ghost" id="shelfBtn">Add to shelf</button>
+          <button class="btn-ghost" id="againBtn">Again</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="wipe" id="wipe"><div class="half left"></div><div class="half right"></div></div>
+  <p class="fnote" id="fnote"></p>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+(function(){
+  "use strict";
+  const $ = s => document.querySelector(s);
+
+  const FRAMES = [
+    {id:'white', short:'White',  name:'Classic white', paper:'#ffffff', ink:'#111111', pattern:'none', psize:'auto'},
+    {id:'black', short:'Black',  name:'Classic black', paper:'#1a1a1a', ink:'#f2f2f2', pattern:'none', psize:'auto'},
+    {id:'cream', short:'Cream',  name:'Vintage cream', paper:'#efe6d5', ink:'#6b4b2f', pattern:'none', psize:'auto'},
+    {id:'heart', short:'Hearts', name:'Hearts',        paper:'#fbeef0', ink:'#c0405a', pattern:'radial-gradient(circle at 50% 60%, rgba(192,64,90,.22) 2.6px, transparent 2.8px)', psize:'16px 16px'},
+    {id:'glitter', short:'Glitter', name:'Glitter lilac', paper:'#ece4fb', ink:'#6b4aa3', pattern:'radial-gradient(circle at 30% 30%, rgba(148,108,214,.5) 1.3px, transparent 1.5px), radial-gradient(circle at 75% 65%, rgba(214,168,246,.65) 2px, transparent 2.2px)', psize:'13px 13px, 21px 21px'},
+    {id:'y2k', short:'Y2K', name:'Y2K candy', paper:'#ffe3f1', ink:'#d81e78', pattern:'repeating-linear-gradient(45deg, rgba(216,30,120,.13) 0 5px, transparent 5px 11px), radial-gradient(circle at 80% 15%, rgba(64,196,232,.35) 0 22%, transparent 24%)', psize:'auto, auto'},
+    {id:'doodle', short:'Doodle', name:'Mint doodle', paper:'#e4f4ea', ink:'#1f7a55', pattern:'linear-gradient(45deg, rgba(31,122,85,.14) 25%, transparent 25% 75%, rgba(31,122,85,.14) 75%), linear-gradient(45deg, rgba(31,122,85,.14) 25%, transparent 25% 75%, rgba(31,122,85,.14) 75%)', psize:'14px 14px, 14px 14px'}
+  ];
+  const SECONDS = 3;
+
+  const state = {frame:'cream', caption:'', shots:[], shelf:[], stream:null, timers:[]};
+  const frameDef = () => FRAMES.find(f=>f.id===state.frame) || FRAMES[2];
+  const wait = ms => new Promise(r=>state.timers.push(setTimeout(r,ms)));
+  const clearTimers = () => { state.timers.forEach(clearTimeout); state.timers=[]; };
+  const stopCam = () => { if(state.stream){ state.stream.getTracks().forEach(t=>t.stop()); state.stream=null; } };
+  function show(id){ ['home','capture','reveal'].forEach(s=>$('#'+s).classList.toggle('hide', s!==id)); }
+
+  // curtain wipe — used to "step in" and "step out"
+  function wipe(swap){
+    return new Promise(done=>{
+      const w=$('#wipe'); w.classList.add('on');
+      requestAnimationFrame(()=>w.classList.add('closed'));
+      setTimeout(swap, 430);
+      setTimeout(()=>w.classList.remove('closed'), 620);
+      setTimeout(()=>{ w.classList.remove('on'); done(); }, 1060);
+    });
+  }
+
+  function applyPaper(el,f){ el.style.backgroundColor=f.paper; el.style.backgroundImage=f.pattern; el.style.backgroundSize=f.psize; }
+  function renderHome(){
+    const f=frameDef();
+    applyPaper($('#previewPaper'),f);
+    const pc=$('#previewCap'); pc.style.color=f.ink; pc.textContent=(state.caption||'').trim()||'fotobås';
+    $('#frameName').textContent=f.name;
+    document.querySelectorAll('.swatch').forEach(b=>b.classList.toggle('sel', b.dataset.id===state.frame));
+  }
+  function buildPicker(){
+    const p=$('#picker');
+    FRAMES.forEach(f=>{
+      const b=document.createElement('button');
+      b.className='swatch'+(f.id===state.frame?' sel':''); b.dataset.id=f.id;
+      b.innerHTML='<span class="chip"><span></span><span></span><span></span></span><span class="name">'+f.short+'</span>';
+      const chip=b.querySelector('.chip');
+      chip.style.backgroundColor=f.paper; chip.style.backgroundImage=f.pattern; chip.style.backgroundSize=f.psize;
+      chip.children[2].style.background=f.ink;
+      b.onclick=()=>{ state.frame=f.id; renderHome(); };
+      p.appendChild(b);
+    });
+  }
+  function renderShelf(){
+    const el=$('#shelf'); el.innerHTML='';
+    state.shelf.forEach(src=>{ const d=document.createElement('div'); d.className='s'; d.style.backgroundImage='url("'+src+'")'; el.appendChild(d); });
+  }
+  $('#caption').addEventListener('input', e=>{ state.caption=e.target.value; renderHome(); });
+
+  (function(){ const b=$('#capBulbs'); for(let i=0;i<5;i++) b.appendChild(document.createElement('i')); })();
+  function litBulbs(on){
+    $('#capBulbs').querySelectorAll('i').forEach(i=>{
+      i.style.background = on ? 'var(--gold)' : '#6a5433';
+      i.style.boxShadow = on ? '0 0 14px 3px rgba(243,209,138,.85)' : 'none';
+    });
+  }
+  function setDots(n){ $('#dots').querySelectorAll('i').forEach((d,i)=>d.classList.toggle('on', i<n)); }
+
+  // START → step into the booth
+  $('#startBtn').onclick = async ()=>{
+    state.shots=[]; setDots(0); litBulbs(false);
+    $('#camerr').classList.add('hide'); $('#capFoot').style.display='';
+    await wipe(()=>show('capture'));
+    startCamera();
+  };
+
+  async function startCamera(){
+    const v=$('#video'); let ok=false, why='';
+    try{
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('unsupported');
+      try{ state.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:1280}},audio:false}); }
+      catch(e){ state.stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false}); }
+      v.srcObject=state.stream; try{ await v.play(); }catch(e){}
+      await new Promise(r=>{ if(v.videoWidth) return r();
+        let done=false; const fin=()=>{ if(!done){done=true;r();} };
+        v.onloadeddata=fin; v.oncanplay=fin; state.timers.push(setTimeout(fin,3500)); });
+      if(!v.videoWidth) throw new Error('no frames'); ok=true;
+    }catch(e){ ok=false; why=(e&&e.name)||''; }
+    if(!ok){ stopCam(); showCamError(why); return; }
+    runSequence(true);
+  }
+
+  function showCamError(why){
+    $('#capFoot').style.display='none';
+    $('#camMsg').textContent = why==='NotAllowedError'
+      ? 'Förhandsvisningen får inte använda kameran. Öppna appen i en egen flik — då frågar webbläsaren om lov och du kan trycka Tillåt.'
+      : 'Kameran är inte tillgänglig här. Öppna i egen flik, eller ladda upp fyra bilder så bygger jag remsan ändå.';
+    $('#camerr').classList.remove('hide');
+    const inFrame=(()=>{ try{ return window.self!==window.top; }catch(e){ return true; } })();
+    $('#openTab').style.display = inFrame ? '' : 'none';
+  }
+  $('#openTab').onclick=()=>window.open(window.location.href,'_blank','noopener');
+  $('#retryCam').onclick=()=>{ $('#camerr').classList.add('hide'); $('#capFoot').style.display=''; startCamera(); };
+  $('#fakeRun').onclick =()=>{ $('#camerr').classList.add('hide'); $('#capFoot').style.display=''; runSequence(false); };
+  $('#fileInput').onchange=e=>{
+    const files=[...e.target.files].slice(0,4); if(!files.length) return;
+    Promise.all(files.map(fl=>new Promise(res=>{
+      const rd=new FileReader();
+      rd.onload=()=>{ const im=new Image(); im.onload=()=>{
+        const sz=Math.min(im.width,im.height);
+        const c=document.createElement('canvas'); c.width=sz;c.height=sz;
+        c.getContext('2d').drawImage(im,(im.width-sz)/2,(im.height-sz)/2,sz,sz,0,0,sz,sz);
+        res(c.toDataURL('image/jpeg',.92));
+      }; im.src=rd.result; };
+      rd.readAsDataURL(fl);
+    }))).then(urls=>{ while(urls.length<4) urls.push(urls[urls.length-1]); state.shots=urls; toReveal(); });
+  };
+
+  async function runSequence(real){
+    $('#camerr').classList.add('hide'); $('#capFoot').style.display='';
+    for(let i=0;i<4;i++){
+      $('#capLbl').textContent='Shot '+(i+1)+' of 4';
+      for(let n=SECONDS;n>=1;n--){
+        litBulbs(true);
+        const c=$('#count'); c.classList.remove('hide');
+        const span=c.querySelector('span'); span.textContent=n;
+        span.style.animation='none'; void span.offsetWidth; span.style.animation='';
+        await wait(780); litBulbs(false);
+      }
+      $('#count').classList.add('hide');
+      const fl=$('#flash'); fl.classList.remove('pop'); void fl.offsetWidth; fl.classList.add('pop');
+      state.shots.push(real ? grab() : placeholder(i));
+      setDots(i+1);
+      await wait(520); await wait(240);
+    }
+    stopCam(); $('#capLbl').textContent='That is the lot';
+    toReveal();
+  }
+
+  function grab(){
+    const v=$('#video'); if(!v||!v.videoWidth) return placeholder(0);
+    const s=Math.min(v.videoWidth,v.videoHeight);
+    const c=document.createElement('canvas'); c.width=s;c.height=s;
+    const ctx=c.getContext('2d'); ctx.translate(s,0); ctx.scale(-1,1);
+    ctx.drawImage(v,(v.videoWidth-s)/2,(v.videoHeight-s)/2,s,s,0,0,s,s);
+    return c.toDataURL('image/jpeg',.92);
+  }
+  function placeholder(i){
+    const tones=[['#8d7f74','#b9ada1'],['#6f6f77','#9a9aa4'],['#8a6f66','#bfa093'],['#77817c','#a7b2ac']][i%4];
+    const c=document.createElement('canvas'); c.width=600;c.height=600;
+    const ctx=c.getContext('2d');
+    const g=ctx.createLinearGradient(0,0,600,600); g.addColorStop(0,tones[1]); g.addColorStop(1,tones[0]);
+    ctx.fillStyle=g; ctx.fillRect(0,0,600,600);
+    ctx.fillStyle='rgba(255,255,255,.22)'; ctx.beginPath(); ctx.arc(300,240,110,0,7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(300,540,175,140,0,0,7); ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,.32)'; ctx.font='700 26px "Barlow Condensed",sans-serif'; ctx.textAlign='center';
+    ctx.fillText('STAND-IN '+(i+1),300,590);
+    return c.toDataURL('image/jpeg',.9);
+  }
+  function stamp(){ const d=new Date();
+    return 'FOTOBÅS · '+String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear(); }
+
+  // REVEAL → step out, strip dispenses + develops
+  async function toReveal(){
+    const f=frameDef(), strip=$('#strip'), glow=$('#slotGlow');
+    applyPaper(strip,f);
+    strip.querySelectorAll('.ph .img').forEach((im,i)=>{ im.style.backgroundImage='url("'+(state.shots[i]||'')+'")'; });
+    $('#stripCap').textContent=(state.caption||'').trim(); $('#stripCap').style.color=f.ink;
+    $('#stripStamp').textContent=stamp(); $('#stripStamp').style.color=f.ink;
+    $('#saveBtn').textContent='Save to camera roll'; $('#shelfBtn').textContent='Add to shelf';
+    $('#revealFoot').classList.remove('show');
+    strip.classList.remove('print'); glow.classList.remove('go');
+    await wipe(()=>show('reveal'));
+    void strip.offsetWidth; strip.classList.add('print');   // slow feed + develop
+    void glow.offsetWidth; glow.classList.add('go');
+    state.timers.push(setTimeout(()=>glow.classList.remove('go'), 5900));
+    state.timers.push(setTimeout(()=>$('#revealFoot').classList.add('show'), 6900));
+  }
+
+  function resetReveal(){ $('#strip').classList.remove('print'); $('#slotGlow').classList.remove('go'); $('#revealFoot').classList.remove('show'); }
+  $('#stepOut').onclick=()=>{ clearTimers(); stopCam(); $('#count').classList.add('hide'); setDots(0); resetReveal(); wipe(()=>{ show('home'); renderHome(); }); };
+  $('#againBtn').onclick=()=>{ clearTimers(); state.shots=[]; resetReveal(); wipe(()=>{ show('home'); renderHome(); }); };
+
+  function paintPaper(ctx,f,W,H){
+    if(f.id==='glitter'){
+      for(let y=0;y<H;y+=13) for(let x=0;x<W;x+=13){
+        ctx.fillStyle='rgba(148,108,214,.45)'; ctx.beginPath(); ctx.arc(x+4,y+4,1.4,0,7); ctx.fill();
+        ctx.fillStyle='rgba(214,168,246,.6)'; ctx.beginPath(); ctx.arc(x+10,y+9,2,0,7); ctx.fill();
+      }
+    } else if(f.id==='y2k'){
+      ctx.save(); ctx.strokeStyle='rgba(216,30,120,.13)'; ctx.lineWidth=5;
+      for(let d=-H;d<W+H;d+=11){ ctx.beginPath(); ctx.moveTo(d,0); ctx.lineTo(d+H,H); ctx.stroke(); }
+      const g=ctx.createRadialGradient(W*.8,H*.08,0,W*.8,H*.08,W*.5);
+      g.addColorStop(0,'rgba(64,196,232,.35)'); g.addColorStop(1,'rgba(64,196,232,0)');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H); ctx.restore();
+    } else if(f.id==='doodle'){
+      ctx.fillStyle='rgba(31,122,85,.14)';
+      for(let y=0;y<H;y+=14) for(let x=0;x<W;x+=14){ ctx.fillRect(x,y,7,7); ctx.fillRect(x+7,y+7,7,7); }
+    } else if(f.id==='heart'){
+      ctx.fillStyle='rgba(192,64,90,.22)';
+      for(let y=0;y<H;y+=16) for(let x=0;x<W;x+=16){ ctx.beginPath(); ctx.arc(x+8,y+9,2.6,0,7); ctx.fill(); }
+    }
+  }
+  function buildCanvas(cb){
+    const f=frameDef(), R=3, cell=300, pad=24, gap=16, capH=90;
+    const W=cell+pad*2, H=pad+(cell+gap)*4-gap+pad+capH;
+    const c=$('#canvas'); c.width=W*R; c.height=H*R;
+    const ctx=c.getContext('2d'); ctx.setTransform(R,0,0,R,0,0);
+    ctx.fillStyle=f.paper; ctx.fillRect(0,0,W,H); paintPaper(ctx,f,W,H);
+    const srcs=state.shots.slice(0,4); if(!srcs.length){ cb(null); return; }
+    let loaded=0; const imgs=srcs.map(()=>new Image());
+    imgs.forEach((im,i)=>{ im.onload=()=>{ if(++loaded===imgs.length) done(); }; im.src=srcs[i]; });
+    function done(){
+      imgs.forEach((im,i)=>{ ctx.drawImage(im,pad,pad+(cell+gap)*i,cell,cell); });
+      const cy=pad+(cell+gap)*4-gap+pad;
+      ctx.fillStyle=f.ink; ctx.textAlign='center';
+      const cap=(state.caption||'').trim();
+      if(cap){ ctx.font='600 26px Fraunces, serif'; ctx.fillText(cap,W/2,cy+34,W-pad*2); }
+      ctx.font='700 13px "Barlow Condensed", sans-serif'; ctx.globalAlpha=.75;
+      ctx.fillText(stamp(),W/2,cy+(cap?64:40)); ctx.globalAlpha=1;
+      cb(c.toDataURL('image/png'));
+    }
+  }
+  $('#saveBtn').onclick=()=>buildCanvas(url=>{ if(!url) return;
+    const a=document.createElement('a'); a.download='fotobas-strip.png'; a.href=url; a.click();
+    $('#saveBtn').textContent='Saved to camera roll'; });
+  $('#shelfBtn').onclick=()=>buildCanvas(url=>{ if(!url) return;
+    state.shelf=[url,...state.shelf].slice(0,6); $('#shelfBtn').textContent='On the shelf'; renderShelf(); });
+
+  const inFrame=(()=>{ try{ return window.self!==window.top; }catch(e){ return true; } })();
+  $('#fnote').textContent = inFrame ? 'Förhandsvisning: kameran är blockerad här — tryck Take four shots och välj Ladda upp / stand-ins.' : '';
+
+  buildPicker(); renderHome(); renderShelf();
+})();
+</script>
+</body>
+</html>
